@@ -125,5 +125,5 @@ The buffered image is converted to a byte array in PNG format using [ImageIO](ht
 See the above off-screen image generation using AWT? That is **exactly** the same code that I used almost 20 years ago when I implemented
 the first prototype of [ArcIMS](http://en.wikipedia.org/wiki/ArcIMS) using Java over a couple of [Fat Tire](http://www.newbelgium.com/beer/detail.aspx?id=7c5b394b-d7b7-486a-ac9a-316256a7b0ee) in Denver, CO.
 At the time, there was no [JIT](http://en.wikipedia.org/wiki/Just-in-time_compilation) in the JVM and the drawing was painfully slow.
-We ended up implementing the drawing and the container in C++ using an in memory graphics library that we purchased - I think it was called fathead.
+We ended up implementing the drawing and the container in C++ using an in memory graphics library that we purchased.
 What is old is new again! And when you get to my age, you get to see history amazingly repeat itself - hopefully for the better.
