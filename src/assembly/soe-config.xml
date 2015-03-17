@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<ESRI.Configuration xmlns="http://schemas.esri.com/Desktop/AddIns">
+    <Name>${project.name}</Name>
+    <Description>${project.description}</Description>
+    <Date>${soe.timestamp}</Date>
+    <manifest/>
+    <Author/>
+    <Company/>
+    <Version>${project.version}</Version>
+    <Targets>
+        <Target name="server" version="10.3"/>
+    </Targets>
+    <AddInID>{${soe.uuid}}</AddInID>
+    <AddIn language="Java">
+        <ServerObjectType>
+            <Name>MapServer</Name>
+            <ExtensionTypes>
+                <ExtensionType class="com.esri.ExportImageSOI"
+                               id="com.esri.ExportImageSOI"
+                               library="${project.artifactId}-${project.version}.jar">
+                    <Name>ExportImageSOI</Name>
+                    <DisplayName>Export Image SOI</DisplayName>
+                    <Description>
+                        Server object to intercept export/image requests and call MemSQL AWS service
+                    </Description>
+                    <Properties>
+                        <driver>com.mysql.jdbc.Driver</driver>
+                        <connection>jdbc:mysql://ec2-XX-XX-XX-XX.compute-1.amazonaws.com:3306/taxistats</connection>
+                        <username>root</username>
+                        <table>taxistats</table>
+                        <maxWidth>50000.0</maxWidth>
+                    </Properties>
+                    <Info>
+                        <DefaultWebCapabilities/>
+                        <AllWebCapabilities/>
+                        <SupportsSOAP>false</SupportsSOAP>
+                        <SupportsREST>false</SupportsREST>
+                        <SupportsInterceptor>true</SupportsInterceptor>
+                        <hasManagerPropertiesConfigurationPane>false</hasManagerPropertiesConfigurationPane>
+                    </Info>
+                    <Resources>
+                        <WSDL/>
+                    </Resources>
+                </ExtensionType>
+            </ExtensionTypes>
+        </ServerObjectType>
+    </AddIn>
+</ESRI.Configuration>
