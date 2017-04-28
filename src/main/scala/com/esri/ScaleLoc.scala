@@ -9,7 +9,7 @@ class ScaleLoc(scale: Double, val loc: String) extends Serializable {
 
   def toHexGrid() = {
     loc.split('_') match {
-      case Array(_, size) => {
+      case Array(prefix, size) => {
         HexGrid(size.toDouble, -20000000.0, -20000000.0)
       }
       case _ => HexGrid(1000000.0, -20000000.0, -20000000.0)

@@ -1,9 +1,9 @@
 package com.esri
 
-import java.awt.Color
 import java.awt.image.BufferedImage
+import java.awt.{Color, RenderingHints}
 import java.io.ByteArrayOutputStream
-import java.sql.{Connection, DriverManager, PreparedStatement}
+import java.sql.{Connection, DriverManager}
 import javax.imageio.ImageIO
 
 import com.esri.arcgis.interop.extn.ArcGISExtension
@@ -19,7 +19,7 @@ class ExportImageSOI extends AbstractSOI with IObjectConstruct {
   val colorMapper = new ColorMapper()
 
   var connection: Connection = _
-  var preparedStatement: PreparedStatement = _
+  var tableName: String = _
   var imagePNG: String = _
   var maxWidth: Double = _
   var minCount: Double = _
@@ -40,10 +40,13 @@ class ExportImageSOI extends AbstractSOI with IObjectConstruct {
       delCount = maxCount - minCount
 
       scaleMax = propertySet.getProperty("maxScale").asInstanceOf[String].toDouble
-      scaleLocArr = propertySet.getProperty("scales").asInstanceOf[String].split(',').map(ScaleLoc(_))
+      scaleLocArr = propertySet.getProperty("scales").asInstanceOf[String].split(',').map(token => {
+        // log.addMessage(3, 200, token)
+        ScaleLoc(token)
+      })
 
       maxWidth = propertySet.getProperty("maxWidth").asInstanceOf[String].toDouble
-      val tableName = propertySet.getProperty("table").asInstanceOf[String]
+      tableName = propertySet.getProperty("table").asInstanceOf[String]
 
       val json = new JSONObject(Map("Content-Type" -> "image/png"))
       imagePNG = json.toString()
@@ -64,12 +67,6 @@ class ExportImageSOI extends AbstractSOI with IObjectConstruct {
               group by 2,3 order by 1"""
             )
       */
-      preparedStatement = connection.prepareStatement(
-        s"""select ?,count(1)
-            from $tableName where geography_intersects(shape, ?)
-        group by 1"""
-      )
-
       log.addMessage(3, 200, "Constructed.")
     }
     catch {
@@ -95,6 +92,10 @@ class ExportImageSOI extends AbstractSOI with IObjectConstruct {
     val bi = new BufferedImage(imgW, imgH, BufferedImage.TYPE_INT_ARGB)
     val g = bi.createGraphics()
     try {
+      g.setRenderingHints(Map(
+        RenderingHints.KEY_ANTIALIASING -> RenderingHints.VALUE_ANTIALIAS_ON,
+        RenderingHints.KEY_RENDERING -> RenderingHints.VALUE_RENDER_QUALITY
+      ))
       g.setBackground(Color.WHITE)
       val scale = (xmax - xmin) * dpm / imgW
       if (scale > 0 && scale < scaleMax) {
@@ -106,45 +107,66 @@ class ExportImageSOI extends AbstractSOI with IObjectConstruct {
               val maxLon = xmax toLongitude
               val minLat = ymin toLatitude
               val maxLat = ymax toLatitude
-              val delLon = maxLon - minLon
-              val delLat = maxLat - minLat
               val sb = new StringBuilder("POLYGON((")
               sb.append(minLon).append(' ').append(minLat).append(',')
                 .append(maxLon).append(' ').append(minLat).append(',')
                 .append(maxLon).append(' ').append(maxLat).append(',')
                 .append(minLon).append(' ').append(maxLat).append(',')
                 .append(minLon).append(' ').append(minLat).append("))")
-              preparedStatement.setString(1, scaleLoc.loc)
-              preparedStatement.setString(2, sb.toString)
-              val resultSet = preparedStatement.executeQuery
+              val preparedStatement = connection.prepareStatement(
+                s"""select ${scaleLoc.loc},count(1)
+            from $tableName where geography_intersects(shape, ?)
+        group by 1"""
+              )
+              preparedStatement.setString(1, sb.toString)
               try {
-                while (resultSet.next) {
-                  val loc = resultSet.getString(1)
-                  val pop = resultSet.getInt(2)
-                  val arr = loc.split(':')
-                  val row = arr(0).toLong
-                  val col = arr(1).toLong
-                  val cellXY = hexGrid.convertRowColToHexXY(row, col)
-                  val lon = cellXY.x toLongitude
-                  val lat = cellXY.y toLatitude
-                  val fx = (lon - minLon) / delLon
-                  val fy = 1.0 - (lat - minLat) / delLat
-                  val gx = (imgW * fx).toInt
-                  val gy = (imgH * fy).toInt
-                  val colorIndex = if (pop < minCount) 0
-                  else if (pop > maxCount) 255
-                  else math.floor(255 * (pop - minCount) / delCount).toInt
-                  g.setColor(colorMapper.getColor(colorIndex))
-                  g.fillRect(gx - 10, gy - 10, 20, 20)
+                val resultSet = preparedStatement.executeQuery
+                try {
+                  val dx = xmax - xmin
+                  val dy = ymax - ymin
+                  val px = new Array[Int](7)
+                  val py = new Array[Int](7)
+                  val hexCell = new HexCell(hexGrid.size)
+                  while (resultSet.next) {
+                    val loc = resultSet.getString(1)
+                    val pop = resultSet.getInt(2)
+                    val arr = loc.split(':')
+                    val row = arr(0).toLong
+                    val col = arr(1).toLong
+                    val cellXY = hexGrid.convertRowColToHexXY(row, col)
+
+                    var i = 0
+                    while (i < 7) {
+                      val hx = cellXY.x + hexCell.x(i)
+                      val hy = cellXY.y + hexCell.y(i)
+                      val fx = (hx - xmin) / dx
+                      val fy = 1.0 - (hy - ymin) / dy
+                      px(i) = (imgW * fx).toInt
+                      py(i) = (imgH * fy).toInt
+                      i += 1
+                    }
+
+                    val colorIndex = if (pop < minCount) 0
+                    else if (pop > maxCount) 255
+                    else math.floor(255 * (pop - minCount) / delCount).toInt
+                    g.setColor(colorMapper.getColor(colorIndex))
+                    g.fillPolygon(px, py, 7)
+                    g.setColor(Color.BLACK)
+                    g.drawPolygon(px, py, 7)
+                  }
+                } finally {
+                  resultSet.close()
                 }
               } finally {
-                resultSet.close()
+                preparedStatement.close()
               }
               g.setColor(Color.GREEN)
             }
             catch {
               case t: Throwable => {
-                log.addMessage(3, 200, t.toString)
+                t.getStackTrace.foreach(ste => {
+                  log.addMessage(3, 200, ste.toString)
+                })
                 g.setColor(Color.RED)
               }
             }

@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.esri</groupId>
     <artifactId>ExportImageSOI</artifactId>
-    <version>0.16</version>
+    <version>0.20</version>
 
     <!-- set name and description so they get pick up in soe-config.xml -->
     <name>ExportImageSOI</name>
