@@ -59,8 +59,10 @@ public class ColorMapper implements Serializable
         return colors[index];
     }
 
+    /*
     public Color getColor(final float val, final float min, final float del)
     {
         return getColor((int) (255 * (val - min) / del));
     }
+    */
 }

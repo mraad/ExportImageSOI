@@ -65,9 +65,10 @@ class ExportImageSOI extends AbstractSOI with IObjectConstruct {
     }
   }
 
+  val sizeRE = "^(\\d+),(\\d+)$".r
+
   def doExportImage(operationInput: String, responseProperties: Array[String]) = {
     val jsonInput = new JSONObject(operationInput)
-    val sizeRE = "^(\\d+),(\\d+)$".r
     val (imgW, imgH) = jsonInput.getString("size") match {
       case sizeRE(wt, ht) => (wt.toInt, ht.toInt)
       case _ => (400, 400)
@@ -208,7 +209,7 @@ class ExportImageSOI extends AbstractSOI with IObjectConstruct {
   }
 
   override protected def preShutdown(): Unit = {
-    log.addMessage(3, 200, "ExportImageSOI::preShutdown")
+    // log.addMessage(3, 200, "ExportImageSOI::preShutdown")
     try {
       connection.close()
     }
