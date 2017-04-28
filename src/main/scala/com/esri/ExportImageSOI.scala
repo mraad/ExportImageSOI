@@ -18,6 +18,7 @@ class ExportImageSOI extends AbstractSOI with IObjectConstruct {
 
   val colorMapper = new ColorMapper()
 
+  var showRect: Boolean = _
   var connection: Connection = _
   var tableName: String = _
   var imagePNG: String = _
@@ -35,15 +36,13 @@ class ExportImageSOI extends AbstractSOI with IObjectConstruct {
     try {
       colorMapper.construct()
 
+      showRect = propertySet.getProperty("showRect").asInstanceOf[String].toBoolean
       minCount = propertySet.getProperty("minCount").asInstanceOf[String].toDouble
       maxCount = propertySet.getProperty("maxCount").asInstanceOf[String].toDouble
       delCount = maxCount - minCount
 
       scaleMax = propertySet.getProperty("maxScale").asInstanceOf[String].toDouble
-      scaleLocArr = propertySet.getProperty("scales").asInstanceOf[String].split(',').map(token => {
-        // log.addMessage(3, 200, token)
-        ScaleLoc(token)
-      })
+      scaleLocArr = propertySet.getProperty("scales").asInstanceOf[String].split(',').map(ScaleLoc(_))
 
       maxWidth = propertySet.getProperty("maxWidth").asInstanceOf[String].toDouble
       tableName = propertySet.getProperty("table").asInstanceOf[String]
@@ -59,15 +58,7 @@ class ExportImageSOI extends AbstractSOI with IObjectConstruct {
         "" // No password
       )
 
-      /*
-            preparedStatement = connection.prepareStatement(
-              s"""select
-               count(1),round(geography_latitude(shape),3),round(geography_longitude(shape),3)
-              from $tableName where geography_intersects(shape, ?)
-              group by 2,3 order by 1"""
-            )
-      */
-      log.addMessage(3, 200, "Constructed.")
+      // log.addMessage(3, 200, "Constructed.")
     }
     catch {
       case t: Throwable => log.addMessage(3, 200, t.toString())
@@ -114,12 +105,10 @@ class ExportImageSOI extends AbstractSOI with IObjectConstruct {
                 .append(minLon).append(' ').append(maxLat).append(',')
                 .append(minLon).append(' ').append(minLat).append("))")
               val preparedStatement = connection.prepareStatement(
-                s"""select ${scaleLoc.loc},count(1)
-            from $tableName where geography_intersects(shape, ?)
-        group by 1"""
+                s"""select ${scaleLoc.loc},count(1) from $tableName where geography_intersects(shape, ?) group by 1"""
               )
-              preparedStatement.setString(1, sb.toString)
               try {
+                preparedStatement.setString(1, sb.toString)
                 val resultSet = preparedStatement.executeQuery
                 try {
                   val dx = xmax - xmin
@@ -178,7 +167,10 @@ class ExportImageSOI extends AbstractSOI with IObjectConstruct {
       else {
         g.setColor(Color.BLUE)
       }
-      g.drawRect(0, 0, imgW - 1, imgH - 1)
+      if (showRect)
+        g.drawRect(0, 0, imgW - 1, imgH - 1)
+      else
+        g.drawRect(0, 0, 2, 2)
     }
     finally {
       g.dispose()
@@ -198,12 +190,10 @@ class ExportImageSOI extends AbstractSOI with IObjectConstruct {
                                  outputFormat: String,
                                  requestProperties: String,
                                  responseProperties: Array[String]
-                                )
-
-  = {
+                                ) = {
 
     // log.addMessage(3, 200, s"r=$resourceName o=$operationName i=$operationInput f=$outputFormat")
-    log.addMessage(3, 200, s"$requestProperties")
+    // log.addMessage(3, 200, s"$requestProperties")
 
     (operationName, outputFormat) match {
       case ("export", "image") => doExportImage(operationInput, responseProperties)
@@ -217,9 +207,7 @@ class ExportImageSOI extends AbstractSOI with IObjectConstruct {
     }
   }
 
-  override protected def preShutdown(): Unit
-
-  = {
+  override protected def preShutdown(): Unit = {
     log.addMessage(3, 200, "ExportImageSOI::preShutdown")
     try {
       connection.close()
