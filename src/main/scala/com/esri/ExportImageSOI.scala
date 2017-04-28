@@ -97,7 +97,7 @@ class ExportImageSOI extends AbstractSOI with IObjectConstruct {
     try {
       g.setBackground(Color.WHITE)
       val scale = (xmax - xmin) * dpm / imgW
-      if (scale < scaleMax) {
+      if (scale > 0 && scale < scaleMax) {
         scaleLocArr.find(_.find(scale)) match {
           case Some(scaleLoc) =>
             try {
