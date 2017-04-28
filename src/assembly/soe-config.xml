@@ -25,9 +25,9 @@
                     </Description>
                     <Properties>
                         <driver>com.mysql.jdbc.Driver</driver>
-                        <connection>jdbc:mysql://ec2-XX-XX-XX-XX.compute-1.amazonaws.com:3306/taxistats</connection>
+                        <connection>jdbc:mysql://10.20.40.182:3306/dmat</connection>
                         <username>root</username>
-                        <table>taxistats</table>
+                        <table>DMAT_Row</table>
                         <maxWidth>50000.0</maxWidth>
                     </Properties>
                     <Info>
