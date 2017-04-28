@@ -22,7 +22,6 @@ class ExportImageSOI extends AbstractSOI with IObjectConstruct {
   var connection: Connection = _
   var tableName: String = _
   var imagePNG: String = _
-  var maxWidth: Double = _
   var minCount: Double = _
   var maxCount: Double = _
   var delCount: Double = _
@@ -31,8 +30,7 @@ class ExportImageSOI extends AbstractSOI with IObjectConstruct {
   val dpm = 96.0 /*DPI*/ * 39.3700787 // dots per meter
 
   override def construct(propertySet: IPropertySet): Unit = {
-    log.addMessage(3, 200, "ExportImageSOI::construct")
-
+    // log.addMessage(3, 200, "ExportImageSOI::construct")
     try {
       colorMapper.construct()
 
@@ -44,7 +42,6 @@ class ExportImageSOI extends AbstractSOI with IObjectConstruct {
       scaleMax = propertySet.getProperty("maxScale").asInstanceOf[String].toDouble
       scaleLocArr = propertySet.getProperty("scales").asInstanceOf[String].split(',').map(ScaleLoc(_))
 
-      maxWidth = propertySet.getProperty("maxWidth").asInstanceOf[String].toDouble
       tableName = propertySet.getProperty("table").asInstanceOf[String]
 
       val json = new JSONObject(Map("Content-Type" -> "image/png"))
@@ -55,7 +52,7 @@ class ExportImageSOI extends AbstractSOI with IObjectConstruct {
       connection = DriverManager.getConnection(
         propertySet.getProperty("connection").asInstanceOf[String],
         propertySet.getProperty("username").asInstanceOf[String],
-        "" // No password
+        "" // No password ???
       )
 
       // log.addMessage(3, 200, "Constructed.")
@@ -141,7 +138,7 @@ class ExportImageSOI extends AbstractSOI with IObjectConstruct {
                     else math.floor(255 * (pop - minCount) / delCount).toInt
                     g.setColor(colorMapper.getColor(colorIndex))
                     g.fillPolygon(px, py, 7)
-                    g.setColor(Color.BLACK)
+                    g.setColor(Color.GRAY)
                     g.drawPolygon(px, py, 7)
                   }
                 } finally {
