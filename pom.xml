@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.esri</groupId>
     <artifactId>ExportImageSOI</artifactId>
-    <version>0.13</version>
+    <version>0.16</version>
 
     <!-- set name and description so they get pick up in soe-config.xml -->
     <name>ExportImageSOI</name>
@@ -75,8 +75,13 @@
         </dependency>
         <dependency>
             <groupId>com.esri</groupId>
-            <artifactId>webmercator</artifactId>
-            <version>1.0</version>
+            <artifactId>hex-grid_${scala.binary.version}</artifactId>
+            <version>1.2</version>
+        </dependency>
+        <dependency>
+            <groupId>com.esri</groupId>
+            <artifactId>webmercator_${scala.binary.version}</artifactId>
+            <version>1.2</version>
         </dependency>
         <dependency>
             <groupId>mysql</groupId>

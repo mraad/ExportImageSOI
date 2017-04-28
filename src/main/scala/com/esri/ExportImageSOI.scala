@@ -9,6 +9,7 @@ import javax.imageio.ImageIO
 import com.esri.arcgis.interop.extn.ArcGISExtension
 import com.esri.arcgis.server.json.JSONObject
 import com.esri.arcgis.system.{IObjectConstruct, IPropertySet, IRESTRequestHandler}
+import com.esri.webmercator._
 
 import scala.collection.JavaConversions._
 
@@ -21,6 +22,12 @@ class ExportImageSOI extends AbstractSOI with IObjectConstruct {
   var preparedStatement: PreparedStatement = _
   var imagePNG: String = _
   var maxWidth: Double = _
+  var minCount: Double = _
+  var maxCount: Double = _
+  var delCount: Double = _
+  var scaleMax: Double = _
+  var scaleLocArr: Array[ScaleLoc] = _
+  val dpm = 96.0 /*DPI*/ * 39.3700787 // dots per meter
 
   override def construct(propertySet: IPropertySet): Unit = {
     log.addMessage(3, 200, "ExportImageSOI::construct")
@@ -28,7 +35,15 @@ class ExportImageSOI extends AbstractSOI with IObjectConstruct {
     try {
       colorMapper.construct()
 
+      minCount = propertySet.getProperty("minCount").asInstanceOf[String].toDouble
+      maxCount = propertySet.getProperty("maxCount").asInstanceOf[String].toDouble
+      delCount = maxCount - minCount
+
+      scaleMax = propertySet.getProperty("maxScale").asInstanceOf[String].toDouble
+      scaleLocArr = propertySet.getProperty("scales").asInstanceOf[String].split(',').map(ScaleLoc(_))
+
       maxWidth = propertySet.getProperty("maxWidth").asInstanceOf[String].toDouble
+      val tableName = propertySet.getProperty("table").asInstanceOf[String]
 
       val json = new JSONObject(Map("Content-Type" -> "image/png"))
       imagePNG = json.toString()
@@ -41,10 +56,19 @@ class ExportImageSOI extends AbstractSOI with IObjectConstruct {
         "" // No password
       )
 
-      preparedStatement = connection.prepareStatement("select" +
-        " count(1),round(geography_latitude(shape),3),round(geography_longitude(shape),3)" +
-        " from DMAT_Row where geography_intersects(shape, ?)" +
-        " group by 2,3 order by 1")
+      /*
+            preparedStatement = connection.prepareStatement(
+              s"""select
+               count(1),round(geography_latitude(shape),3),round(geography_longitude(shape),3)
+              from $tableName where geography_intersects(shape, ?)
+              group by 2,3 order by 1"""
+            )
+      */
+      preparedStatement = connection.prepareStatement(
+        s"""select ?,count(1)
+            from $tableName where geography_intersects(shape, ?)
+        group by 1"""
+      )
 
       log.addMessage(3, 200, "Constructed.")
     }
@@ -56,7 +80,7 @@ class ExportImageSOI extends AbstractSOI with IObjectConstruct {
   def doExportImage(operationInput: String, responseProperties: Array[String]) = {
     val jsonInput = new JSONObject(operationInput)
     val sizeRE = "^(\\d+),(\\d+)$".r
-    val (imgw, imgh) = jsonInput.getString("size") match {
+    val (imgW, imgH) = jsonInput.getString("size") match {
       case sizeRE(wt, ht) => (wt.toInt, ht.toInt)
       case _ => (400, 400)
     }
@@ -67,68 +91,74 @@ class ExportImageSOI extends AbstractSOI with IObjectConstruct {
       }
       case _ => (1.0, 1.0, -1.0, -1.0)
     }
-    val xdel = xmax - xmin
-    val ydel = ymax - ymin
 
-    val fillw = (imgw * 110.0 / xdel).toInt
-    val fillw2 = fillw / 2
-
-    val fillh = (imgh * 130.0 / ydel).toInt
-    val fillh2 = fillh / 2
-
-    val bi = new BufferedImage(imgw, imgh, BufferedImage.TYPE_INT_ARGB)
+    val bi = new BufferedImage(imgW, imgH, BufferedImage.TYPE_INT_ARGB)
     val g = bi.createGraphics()
     try {
       g.setBackground(Color.WHITE)
-      log.addMessage(3, 200, s"$xdel <? $maxWidth")
-      if (xdel < maxWidth && xmin < xmax && ymin < ymax) {
-        try {
-          val minlon = WebMercator.xToLongitude(xmin)
-          val maxlon = WebMercator.xToLongitude(xmax)
-          val minlat = WebMercator.yToLatitude(ymin)
-          val maxlat = WebMercator.yToLatitude(ymax)
-          val dellon = maxlon - minlon
-          val dellat = maxlat - minlat
-          // log.addMessage(3, 200, s"$minlon,$minlat,$maxlon,$maxlat")
-          val sb = new StringBuilder("POLYGON((")
-          sb.append(minlon).append(' ').append(minlat).append(',')
-            .append(maxlon).append(' ').append(minlat).append(',')
-            .append(maxlon).append(' ').append(maxlat).append(',')
-            .append(minlon).append(' ').append(maxlat).append(',')
-            .append(minlon).append(' ').append(minlat).append("))")
-          preparedStatement.setString(1, sb.toString)
-          val resultSet = preparedStatement.executeQuery
-          try {
-            while (resultSet.next) {
-              val w = resultSet.getInt(1)
-              // Bug in MemSQL loading of data, lat is x and lon is y !!
-              val lon = resultSet.getDouble(3)
-              val lat = resultSet.getDouble(2)
-              val fx = (lon - minlon) / dellon
-              val fy = 1.0 - (lat - minlat) / dellat
-              val gx = (imgw * fx).toInt
-              val gy = (imgh * fy).toInt
-              g.setColor(colorMapper.getColor(w.min(255)))
-              // g.setColor(Color.RED)
-              g.fillRect(gx - fillw2, gy - fillh2, fillw, fillh)
+      val scale = (xmax - xmin) * dpm / imgW
+      if (scale < scaleMax) {
+        scaleLocArr.find(_.find(scale)) match {
+          case Some(scaleLoc) =>
+            try {
+              val hexGrid = scaleLoc.toHexGrid
+              val minLon = xmin toLongitude
+              val maxLon = xmax toLongitude
+              val minLat = ymin toLatitude
+              val maxLat = ymax toLatitude
+              val delLon = maxLon - minLon
+              val delLat = maxLat - minLat
+              val sb = new StringBuilder("POLYGON((")
+              sb.append(minLon).append(' ').append(minLat).append(',')
+                .append(maxLon).append(' ').append(minLat).append(',')
+                .append(maxLon).append(' ').append(maxLat).append(',')
+                .append(minLon).append(' ').append(maxLat).append(',')
+                .append(minLon).append(' ').append(minLat).append("))")
+              preparedStatement.setString(1, scaleLoc.loc)
+              preparedStatement.setString(2, sb.toString)
+              val resultSet = preparedStatement.executeQuery
+              try {
+                while (resultSet.next) {
+                  val loc = resultSet.getString(1)
+                  val pop = resultSet.getInt(2)
+                  val arr = loc.split(':')
+                  val row = arr(0).toLong
+                  val col = arr(1).toLong
+                  val cellXY = hexGrid.convertRowColToHexXY(row, col)
+                  val lon = cellXY.x toLongitude
+                  val lat = cellXY.y toLatitude
+                  val fx = (lon - minLon) / delLon
+                  val fy = 1.0 - (lat - minLat) / delLat
+                  val gx = (imgW * fx).toInt
+                  val gy = (imgH * fy).toInt
+                  val colorIndex = if (pop < minCount) 0
+                  else if (pop > maxCount) 255
+                  else math.floor(255 * (pop - minCount) / delCount).toInt
+                  g.setColor(colorMapper.getColor(colorIndex))
+                  g.fillRect(gx - 10, gy - 10, 20, 20)
+                }
+              } finally {
+                resultSet.close()
+              }
+              g.setColor(Color.GREEN)
             }
-          } finally {
-            resultSet.close()
-          }
-          g.setColor(Color.GREEN)
-        }
-        catch {
-          case t: Throwable => {
-            log.addMessage(3, 200, t.toString)
-            g.setColor(Color.RED)
+            catch {
+              case t: Throwable => {
+                log.addMessage(3, 200, t.toString)
+                g.setColor(Color.RED)
+              }
+            }
+          case _ => {
+            g.setColor(Color.BLUE)
           }
         }
       }
       else {
         g.setColor(Color.BLUE)
       }
-      g.drawRect(0, 0, imgw - 1, imgh - 1)
-    } finally {
+      g.drawRect(0, 0, imgW - 1, imgH - 1)
+    }
+    finally {
       g.dispose()
     }
 
@@ -146,9 +176,12 @@ class ExportImageSOI extends AbstractSOI with IObjectConstruct {
                                  outputFormat: String,
                                  requestProperties: String,
                                  responseProperties: Array[String]
-                                ) = {
+                                )
 
-    log.addMessage(3, 200, s"r=$resourceName o=$operationName i=$operationInput f=$outputFormat")
+  = {
+
+    // log.addMessage(3, 200, s"r=$resourceName o=$operationName i=$operationInput f=$outputFormat")
+    log.addMessage(3, 200, s"$requestProperties")
 
     (operationName, outputFormat) match {
       case ("export", "image") => doExportImage(operationInput, responseProperties)
@@ -162,7 +195,9 @@ class ExportImageSOI extends AbstractSOI with IObjectConstruct {
     }
   }
 
-  override protected def preShutdown(): Unit = {
+  override protected def preShutdown(): Unit
+
+  = {
     log.addMessage(3, 200, "ExportImageSOI::preShutdown")
     try {
       connection.close()
