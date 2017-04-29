@@ -60,7 +60,7 @@ Build the project using:
 mvn clean package
 ```
 
-This will create a file named `ExportImageSOI-0.7.soe` in the `target` folder.
+This will create a file named `ExportImageSOI-XXX.soe` in the `target` folder.
 
 ## Adding The Extension
 

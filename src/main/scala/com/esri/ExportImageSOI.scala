@@ -77,6 +77,12 @@ class ExportImageSOI extends AbstractSOI with IObjectConstruct {
       }
       case _ => (1.0, 1.0, -1.0, -1.0)
     }
+    val defExp = if (jsonInput.has("definitionExpression"))
+      jsonInput.get("definitionExpression") match {
+        case text: String => " AND " + text
+        case _ => ""
+      }
+    else ""
 
     val bi = new BufferedImage(imgW, imgH, BufferedImage.TYPE_INT_ARGB)
     val g = bi.createGraphics()
@@ -103,7 +109,7 @@ class ExportImageSOI extends AbstractSOI with IObjectConstruct {
                 .append(minLon).append(' ').append(maxLat).append(',')
                 .append(minLon).append(' ').append(minLat).append("))")
               val preparedStatement = connection.prepareStatement(
-                s"""select ${scaleLoc.loc},count(1) from $tableName where geography_intersects(shape, ?) group by 1"""
+                s"""select ${scaleLoc.loc},count(1) from $tableName where geography_intersects(shape, ?) $defExp group by 1"""
               )
               try {
                 preparedStatement.setString(1, sb.toString)
@@ -168,7 +174,7 @@ class ExportImageSOI extends AbstractSOI with IObjectConstruct {
       if (showRect)
         g.drawRect(0, 0, imgW - 1, imgH - 1)
       else
-        g.drawRect(0, 0, 2, 2)
+        g.drawRect(0, 0, 1, 1)
     }
     finally {
       g.dispose()
@@ -190,8 +196,7 @@ class ExportImageSOI extends AbstractSOI with IObjectConstruct {
                                  responseProperties: Array[String]
                                 ) = {
 
-    // log.addMessage(3, 200, s"r=$resourceName o=$operationName i=$operationInput f=$outputFormat")
-    // log.addMessage(3, 200, s"$requestProperties")
+    log.addMessage(3, 200, s"r=$resourceName o=$operationName i=$operationInput f=$outputFormat")
 
     (operationName, outputFormat) match {
       case ("export", "image") => doExportImage(operationInput, responseProperties)

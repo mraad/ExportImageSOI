@@ -33,7 +33,7 @@
                         <minCount>500</minCount>
                         <maxCount>10000</maxCount>
                         <maxScale>20000000</maxScale>
-                        <scales> 50000:loc_10,100000:loc_25,150000:loc_50,250000:loc_100,500000:loc_200,750000:loc_500,1250000:loc_1000,2500000:loc_5000,10000000:loc_10000,20000000:loc_100000</scales>
+                        <scales>50000:loc_10,100000:loc_25,150000:loc_50,250000:loc_100,500000:loc_200,750000:loc_500,1250000:loc_1000,2500000:loc_5000,10000000:loc_10000,20000000:loc_100000</scales>
                     </Properties>
                     <Info>
                         <DefaultWebCapabilities/>

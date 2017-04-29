@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.esri</groupId>
     <artifactId>ExportImageSOI</artifactId>
-    <version>0.21</version>
+    <version>0.32</version>
 
     <!-- set name and description so they get pick up in soe-config.xml -->
     <name>ExportImageSOI</name>
@@ -11,9 +11,9 @@
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <java.version>1.7</java.version>
-        <scala.binary.version>2.10</scala.binary.version>
-        <scala.version>2.10.6</scala.version>
+        <java.version>1.8</java.version>
+        <scala.binary>2.10</scala.binary>
+        <scala.version>${scala.binary}.6</scala.version>
     </properties>
 
     <repositories>
@@ -75,12 +75,12 @@
         </dependency>
         <dependency>
             <groupId>com.esri</groupId>
-            <artifactId>hex-grid_${scala.binary.version}</artifactId>
+            <artifactId>hex-grid_${scala.binary}</artifactId>
             <version>1.2</version>
         </dependency>
         <dependency>
             <groupId>com.esri</groupId>
-            <artifactId>webmercator_${scala.binary.version}</artifactId>
+            <artifactId>webmercator_${scala.binary}</artifactId>
             <version>1.2</version>
         </dependency>
         <dependency>
@@ -121,7 +121,7 @@
                     </execution>
                 </executions>
                 <configuration>
-                    <scalaCompatVersion>${scala.binary.version}</scalaCompatVersion>
+                    <scalaCompatVersion>${scala.binary}</scalaCompatVersion>
                     <scalaVersion>${scala.version}</scalaVersion>
                     <recompileMode>incremental</recompileMode>
                     <useZincServer>false</useZincServer>
